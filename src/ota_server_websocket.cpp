@@ -3,9 +3,8 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <Update.h>
-// #include <AsyncTCP.h>
-// #include <ESPAsyncWebServer.h>
 #include "littlefs_fun.h"
+#include "web_config.h"
 
 const char *host = "esp32";
 
@@ -16,6 +15,8 @@ const char *password = "1704002831";
 // const char *password = "vcomm13579";
 
 WebServer server(80);
+WebConfig conf;
+
 // AsyncWebServer server(80);
 
 bool ledState = 0;
@@ -23,56 +24,9 @@ const int ledPin = 2;
 
 
 #define FORMAT_LITTLEFS_IF_FAILED true
-
-String processor(const String &var)
-{
-    Serial.println(var);
-    if (var == "STATE")
-    {
-        if (ledState)
-        {
-            return "ON";
-        }
-        else
-        {
-            return "OFF";
-        }
-    }
-    return String();
-}
-
-String RestartESP(const String &var)
-{
-    ESP.restart();
-    return "Esp restart";
-}
-
-static void handleNotFound()
-{
-    String path = server.uri(); // Important!
-
-    if (!LITTLEFS.exists(path))
-    {
-        server.send(404, "text/plain", "Path " + path + " not found. Please double-check the URL");
-        return;
-    }
-    String contentType = "text/plain";
-    if (path.endsWith(".css"))
-    {
-        contentType = "text/css";
-    }
-    else if (path.endsWith(".html"))
-    {
-        contentType = "text/html";
-    }
-    else if (path.endsWith(".js"))
-    {
-        contentType = "application/javascript";
-    }
-    File file = LITTLEFS.open(path, "r");
-    server.streamFile(file, contentType);
-    file.close();
-}
+static void handleNotFound();
+String processor(const String &var);
+String RestartESP(const String &var);
 
 /*
  * setup function
@@ -135,7 +89,7 @@ void setup(void)
 
                   String contentType = "text/html";
                   server.sendHeader("Connection", "close");
-                  //   server.send(200, "text/html", serverIndex);
+                    // server.send(200, "text/html", serverIndex);
                   server.streamFile(file_js, contentType);
                   file_js.close();
 
@@ -207,4 +161,59 @@ void loop(void)
 {
     server.handleClient();
     delay(1);
+}
+
+
+
+
+
+static void handleNotFound()
+{
+    String path = server.uri(); // Important!
+
+    if (!LITTLEFS.exists(path))
+    {
+        server.send(404, "text/plain", "Path " + path + " not found. Please double-check the URL");
+        return;
+    }
+    String contentType = "text/plain";
+    if (path.endsWith(".css"))
+    {
+        contentType = "text/css";
+    }
+    else if (path.endsWith(".html"))
+    {
+        contentType = "text/html";
+    }
+    else if (path.endsWith(".js"))
+    {
+        contentType = "application/javascript";
+    }
+    File file = LITTLEFS.open(path, "r");
+    server.streamFile(file, contentType);
+    file.close();
+}
+
+
+String processor(const String &var)
+{
+    Serial.println(var);
+    if (var == "STATE")
+    {
+        if (ledState)
+        {
+            return "ON";
+        }
+        else
+        {
+            return "OFF";
+        }
+    }
+    return String();
+}
+
+String RestartESP(const String &var)
+{
+    ESP.restart();
+    return "Esp restart";
 }
