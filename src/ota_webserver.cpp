@@ -9,11 +9,11 @@
 
 const char *host = "esp32";
 
-// const char* ssid = "SK_WiFiGIGAFE4B";
-// const char* password = "1704002831";
+const char *ssid = "SK_WiFiGIGAFE4B";
+const char *password = "1704002831";
 
-const char *ssid = "VCOMM_LAB";
-const char *password = "vcomm13579";
+// const char *ssid = "VCOMM_LAB";
+// const char *password = "vcomm13579";
 
 WebServer server(80);
 // AsyncWebServer server(80);
@@ -21,92 +21,6 @@ WebServer server(80);
 bool ledState = 0;
 const int ledPin = 2;
 
-/*
- * Login page
- */
-
-const char *loginIndex =
-    "<form name='loginForm'>"
-    "   <table width='20%' bgcolor='A09F9F' align='center'>"
-    "       <tr>"
-    "           <td colspan=2>"
-    "               <center><font size=4><b>ESP32 Login Page</b></font></center>"
-    "               <br>"
-    "           </td>"
-    "           <br>"
-    "           <br>"
-    "       </tr>"
-    "       <td>Username:</td>"
-    "       <td><input type='text' size=25 name='userid'><br></td>"
-    "       </tr>"
-    "       <br>"
-    "       <br>"
-    "       <tr>"
-    "           <td>Password:</td>"
-    "           <td><input type='Password' size=25 name='pwd'><br></td>"
-    "           <br>"
-    "           <br>"
-    "       </tr>"
-    "       <tr>"
-    "           <td><input type='submit' onclick='check(this.form)' value='Login'></td>"
-    "       </tr>"
-    "   </table>"
-    "</form>"
-    "<script>"
-    "   function check(form)"
-    "   {"
-    "       if(form.userid.value=='admin' && form.pwd.value=='admin')"
-    "       {"
-    "           window.open('/serverIndex')"
-    "       }"
-    "       else"
-    "       {"
-    "           alert('Error Password or Username')/*displays error message*/"
-    "       }"
-    "   }"
-    "</script>";
-
-/*
- * Server Index Page
- */
-//
-// https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
-const char *serverIndex =
-    "<script src='jquery.min.js'></script>"
-    "<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
-    "   <input type='file' name='update'>"
-    "   <input type='submit' value='Update'>"
-    "</form>"
-    "<div id='prg'>progress: 0%</div>"
-    "   <script>"
-    "   $('form').submit(function(e){"
-    "           e.preventDefault();"
-    "           var form = $('#upload_form')[0];"
-    "           var data = new FormData(form);"
-    "       $.ajax({"
-    "           url: '/update',"
-    "           type: 'POST',"
-    "           data: data,"
-    "           contentType: false,"
-    "           processData:false,"
-    "           xhr: function() {"
-    "               var xhr = new window.XMLHttpRequest();"
-    "               xhr.upload.addEventListener('progress', function(evt) {"
-    "                   if (evt.lengthComputable) {"
-    "                       var per = evt.loaded / evt.total;"
-    "                       $('#prg').html('progress: ' + Math.round(per*100) + '%');"
-    "                   }"
-    "               }, false);"
-    "               return xhr;"
-    "           },"
-    "           success:function(d, s) {"
-    "               console.log('success!')"
-    "           },"
-    "           error: function (a, b, c) {"
-    "           }"
-    "       });"
-    "   });"
-    "   </script>";
 
 #define FORMAT_LITTLEFS_IF_FAILED true
 
@@ -210,12 +124,27 @@ void setup(void)
 
     server.on("/", HTTP_GET, []()
               {
+                  File file_js = returnFile(LITTLEFS, "/login_index.html");
+
+                  if (!file_js)
+                  {
+                      Serial.println("- failed to open file");
+                      server.send(500, "text/plain", "Problem with filesystem!\n");
+                      return;
+                  }
+
+                  String contentType = "text/html";
                   server.sendHeader("Connection", "close");
-                  server.send(200, "text/html", loginIndex);
+                  //   server.send(200, "text/html", serverIndex);
+                  server.streamFile(file_js, contentType);
+                  file_js.close();
+
+                //   server.sendHeader("Connection", "close");
+                //   server.send(200, "text/html", loginIndex);
               });
 
     server.on("/serverIndex", HTTP_GET, []()
-              {                  
+              {
                   File file_js = returnFile(LITTLEFS, "/sever_index.html");
 
                   if (!file_js)
