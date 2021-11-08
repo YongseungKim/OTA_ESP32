@@ -15,6 +15,7 @@
 #include "FS.h"
 #include <LITTLEFS.h>
 
+#include "littlefs.h"
 
 void listDir(fs::FS &fs, const char *dirname, uint8_t levels);
 void createDir(fs::FS &fs, const char *path);
@@ -27,5 +28,6 @@ void deleteFile(fs::FS &fs, const char *path);
 void writeFile2(fs::FS &fs, const char *path, const char *message);
 void deleteFile2(fs::FS &fs, const char *path);
 void testFileIO(fs::FS &fs, const char *path);
+File returnFile(fs::FS &fs, const char *path);
 
 #endif

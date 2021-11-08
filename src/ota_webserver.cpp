@@ -3,21 +3,20 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <Update.h>
-
 // #include <AsyncTCP.h>
 // #include <ESPAsyncWebServer.h>
-// #include "littlefs_fun.h"
-
+#include "littlefs_fun.h"
 
 const char *host = "esp32";
 
-const char* ssid = "SK_WiFiGIGAFE4B";
-const char* password = "1704002831";
+// const char* ssid = "SK_WiFiGIGAFE4B";
+// const char* password = "1704002831";
+
+const char *ssid = "VCOMM_LAB";
+const char *password = "vcomm13579";
 
 WebServer server(80);
 // AsyncWebServer server(80);
-
-
 
 bool ledState = 0;
 const int ledPin = 2;
@@ -70,10 +69,10 @@ const char *loginIndex =
 /*
  * Server Index Page
  */
-// 
+//
 // https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js
 const char *serverIndex =
-    "<script src='https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>"
+    "<script src='jquery.min.js'></script>"
     "<form method='POST' action='#' enctype='multipart/form-data' id='upload_form'>"
     "   <input type='file' name='update'>"
     "   <input type='submit' value='Update'>"
@@ -111,7 +110,6 @@ const char *serverIndex =
 
 #define FORMAT_LITTLEFS_IF_FAILED true
 
-
 String processor(const String &var)
 {
     Serial.println(var);
@@ -135,6 +133,33 @@ String RestartESP(const String &var)
     return "Esp restart";
 }
 
+static void handleNotFound()
+{
+    String path = server.uri(); // Important!
+
+    if (!LITTLEFS.exists(path))
+    {
+        server.send(404, "text/plain", "Path " + path + " not found. Please double-check the URL");
+        return;
+    }
+    String contentType = "text/plain";
+    if (path.endsWith(".css"))
+    {
+        contentType = "text/css";
+    }
+    else if (path.endsWith(".html"))
+    {
+        contentType = "text/html";
+    }
+    else if (path.endsWith(".js"))
+    {
+        contentType = "application/javascript";
+    }
+    File file = LITTLEFS.open(path, "r");
+    server.streamFile(file, contentType);
+    file.close();
+}
+
 /*
  * setup function
  */
@@ -142,18 +167,20 @@ void setup(void)
 {
     Serial.begin(115200);
 
-    
     pinMode(ledPin, OUTPUT);
     digitalWrite(ledPin, LOW);
 
+    if (!LITTLEFS.begin(FORMAT_LITTLEFS_IF_FAILED))
+    {
+        Serial.println("LITTLEFS Mount Failed");
+        return;
+    }
 
-    // if(!LITTLEFS.begin(FORMAT_LITTLEFS_IF_FAILED)){
-    //     Serial.println("LITTLEFS Mount Failed");
-    //     return;
-    // }
+    listDir(LITTLEFS, "/", 0);
 
-    // listDir(LITTLEFS, "/", 0);
-    
+    // FS mfs = FS(nullptr);
+    // File file_js = mfs.open("/jquery.min.js", "r");
+
     // Connect to WiFi network
     WiFi.begin(ssid, password);
     Serial.println("");
@@ -180,60 +207,31 @@ void setup(void)
         }
     }
     Serial.println("mDNS responder started");
-    /*return index page which is stored in serverIndex */
-    // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-    //           { request->send_P(200, "text/html", loginIndex, processor); });
-
-    // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-    //           { request->send_P(200, "text/html", serverIndex, processor); });
-
-    // //
-    // server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
-    //           { request->send_P(200, "text/html", (Update.hasError()) ? "FAIL" : "OK", RestartESP); },
-    //           {
-    //             HTTPUpload &upload = server.upload();
-    //             if (upload.status == UPLOAD_FILE_START)
-    //             {
-    //                 Serial.printf("Update: %s\n", upload.filename.c_str());
-    //                 if (!Update.begin(UPDATE_SIZE_UNKNOWN))
-    //                 { //start with max available size
-    //                     Update.printError(Serial);
-    //                 }
-    //             }
-    //             else if (upload.status == UPLOAD_FILE_WRITE)
-    //             {
-    //                 /* flashing firmware to ESP*/
-    //                 if (Update.write(upload.buf, upload.currentSize) != upload.currentSize)
-    //                 {
-    //                     Update.printError(Serial);
-    //                 }
-    //             }
-    //             else if (upload.status == UPLOAD_FILE_END)
-    //             {
-    //                 if (Update.end(true))
-    //                 { //true to set the size to the current progress
-    //                     Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-    //                 }
-    //                 else
-    //                 {
-    //                     Update.printError(Serial);
-    //                 }
-    //             }
-    //         });
 
     server.on("/", HTTP_GET, []()
               {
                   server.sendHeader("Connection", "close");
                   server.send(200, "text/html", loginIndex);
               });
+
     server.on("/serverIndex", HTTP_GET, []()
-              {
+              {                  
+                  File file_js = returnFile(LITTLEFS, "/sever_index.html");
+
+                  if (!file_js)
+                  {
+                      Serial.println("- failed to open file");
+                      server.send(500, "text/plain", "Problem with filesystem!\n");
+                      return;
+                  }
+
+                  String contentType = "text/html";
                   server.sendHeader("Connection", "close");
-                  server.send(200, "text/html", serverIndex);
-                // server.sendP(200, "text/html", "/serverIndex.html");
+                  //   server.send(200, "text/html", serverIndex);
+                  server.streamFile(file_js, contentType);
+                  file_js.close();
               });
-    /*handling uploading firmware file */
-    //   void send_P(int code, PGM_P content_type, PGM_P content);
+
     server.on(
         "/update", HTTP_POST, []()
         {
@@ -272,6 +270,7 @@ void setup(void)
             }
         });
 
+    server.onNotFound(handleNotFound);
     server.begin();
 }
 

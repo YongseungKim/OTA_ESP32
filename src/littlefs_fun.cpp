@@ -4,6 +4,8 @@
  #include <time.h>
 #endif
 
+
+
 void listDir(fs::FS &fs, const char *dirname, uint8_t levels)
 {
     Serial.printf("Listing directory: %s\r\n", dirname);
@@ -85,6 +87,22 @@ void removeDir(fs::FS &fs, const char *path)
         Serial.println("rmdir failed");
     }
 }
+
+File returnFile(fs::FS &fs, const char *path)
+{
+    Serial.printf("Reading file: %s\r\n", path);
+
+    File file = fs.open(path);
+    if (!file || file.isDirectory())
+    {
+        Serial.println("- failed to open file for reading");
+        return file;
+    }
+
+    Serial.println("- read from file:");
+    return file;
+}
+
 
 void readFile(fs::FS &fs, const char *path)
 {
