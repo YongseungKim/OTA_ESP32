@@ -3,10 +3,10 @@
 #include <WebServer.h>
 #include <ESPmDNS.h>
 #include <Update.h>
-#include "SPIFFS.h"
-#include "spiffs_fun.h"
+#include "littlefs_fun.h"
 #include "web_param.h"
 #include "web_config.h"
+#define FORMAT_LITTLEFS_IF_FAILED true
 
 const char *host = "esp32";
 
@@ -41,13 +41,13 @@ void setup(void)
     pinMode(ledPin, OUTPUT);
     digitalWrite(ledPin, LOW);
 
-    if (!SPIFFS.begin())
+    if (!LITTLEFS.begin(FORMAT_LITTLEFS_IF_FAILED))
     {
-        Serial.println("SPIFFS Mount Failed");
+        Serial.println("LITTLEFS Mount Failed");
         return;
     }
 
-    listDir("/");
+    listDir(LITTLEFS, "/", 0);
 
     // FS mfs = FS(nullptr);
     // File file_js = mfs.open("/jquery.min.js", "r");
@@ -57,7 +57,7 @@ void setup(void)
 
     // Connect to WiFi network
     if( ! initWiFi()){
-        Serial.println("Error ");
+        Serial.println("Error ")
 
     } 
 
@@ -74,9 +74,9 @@ void setup(void)
 
     server.on("/", HTTP_GET, []()
               {
-                  File file = returnFile("/login_index.html");
+                  File file_js = returnFile(LITTLEFS, "/login_index.html");
 
-                  if (!file)
+                  if (!file_js)
                   {
                       Serial.println("- failed to open file");
                       server.send(500, "text/plain", "Problem with filesystem!\n");
@@ -86,8 +86,8 @@ void setup(void)
                   String contentType = "text/html";
                   server.sendHeader("Connection", "close");
                     // server.send(200, "text/html", serverIndex);
-                  server.streamFile(file, contentType);
-                  file.close();
+                  server.streamFile(file_js, contentType);
+                  file_js.close();
 
                 //   server.sendHeader("Connection", "close");
                 //   server.send(200, "text/html", loginIndex);
@@ -95,9 +95,9 @@ void setup(void)
 
     server.on("/serverIndex", HTTP_GET, []()
               {
-                  File file = returnFile("/sever_index.html");
+                  File file_js = returnFile(LITTLEFS, "/sever_index.html");
 
-                  if (!file)
+                  if (!file_js)
                   {
                       Serial.println("- failed to open file");
                       server.send(500, "text/plain", "Problem with filesystem!\n");
@@ -107,8 +107,8 @@ void setup(void)
                   String contentType = "text/html";
                   server.sendHeader("Connection", "close");
                   //   server.send(200, "text/html", serverIndex);
-                  server.streamFile(file, contentType);
-                  file.close();
+                  server.streamFile(file_js, contentType);
+                  file_js.close();
               });
 
     server.on(
@@ -150,7 +150,7 @@ void setup(void)
         });
 
     server.onNotFound(handleNotFound);
-    server.on("/config",handleConfigure);
+    server.on("/config",handleNotFound);
     server.begin();
 }
 
@@ -234,7 +234,7 @@ static void handleNotFound()
 {
     String path = server.uri(); // Important!
 
-    if (!SPIFFS.exists(path))
+    if (!LITTLEFS.exists(path))
     {
         server.send(404, "text/plain", "Path " + path + " not found. Please double-check the URL");
         return;
@@ -252,7 +252,7 @@ static void handleNotFound()
     {
         contentType = "application/javascript";
     }
-    File file = SPIFFS.open(path, "r");
+    File file = LITTLEFS.open(path, "r");
     server.streamFile(file, contentType);
     file.close();
 }

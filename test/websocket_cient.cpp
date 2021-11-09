@@ -3,7 +3,7 @@
 //         2. Connects to a Websockets server
 //         3. Sends the websockets server a message ("Hello Server")
 //         4. Prints all incoming messages while the connection is open
-
+#include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <WebSocketsClient.h>
 
