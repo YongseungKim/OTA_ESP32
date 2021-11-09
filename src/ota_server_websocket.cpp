@@ -23,14 +23,19 @@ WebConfig conf;
 
 bool ledState = 0;
 const int ledPin = 2;
+bool login_success = false;
 
-
-boolean initWiFi();
-void handleConfigure();
+bool initWiFi();
+void server_on_handle();
 static void handleNotFound();
 String processor(const String &var);
 String RestartESP(const String &var);
 
+void handler_config();
+void handler_login();
+void  handler_update();
+void handler_server_index();
+void handler_handler_update();
 /*
  * setup function
  */
@@ -72,96 +77,26 @@ void setup(void)
     }
     Serial.println("mDNS responder started");
 
-    server.on("/", HTTP_GET, []()
-              {
-                  File file = returnFile("/login_index.html");
-
-                  if (!file)
-                  {
-                      Serial.println("- failed to open file");
-                      server.send(500, "text/plain", "Problem with filesystem!\n");
-                      return;
-                  }
-
-                  String contentType = "text/html";
-                  server.sendHeader("Connection", "close");
-                    // server.send(200, "text/html", serverIndex);
-                  server.streamFile(file, contentType);
-                  file.close();
-
-                //   server.sendHeader("Connection", "close");
-                //   server.send(200, "text/html", loginIndex);
-              });
-
-    server.on("/serverIndex", HTTP_GET, []()
-              {
-                  File file = returnFile("/sever_index.html");
-
-                  if (!file)
-                  {
-                      Serial.println("- failed to open file");
-                      server.send(500, "text/plain", "Problem with filesystem!\n");
-                      return;
-                  }
-
-                  String contentType = "text/html";
-                  server.sendHeader("Connection", "close");
-                  //   server.send(200, "text/html", serverIndex);
-                  server.streamFile(file, contentType);
-                  file.close();
-              });
-
-    server.on(
-        "/update", HTTP_POST, []()
-        {
-            server.sendHeader("Connection", "close");
-            ESP.restart();
-        },
-        []()
-        {
-            HTTPUpload &upload = server.upload();
-            if (upload.status == UPLOAD_FILE_START)
-            {
-                Serial.printf("Update: %s\n", upload.filename.c_str());
-                if (!Update.begin(UPDATE_SIZE_UNKNOWN))
-                { //start with max available size
-                    Update.printError(Serial);
-                }
-            }
-            else if (upload.status == UPLOAD_FILE_WRITE)
-            {
-                /* flashing firmware to ESP*/
-                if (Update.write(upload.buf, upload.currentSize) != upload.currentSize)
-                {
-                    Update.printError(Serial);
-                }
-            }
-            else if (upload.status == UPLOAD_FILE_END)
-            {
-                if (Update.end(true))
-                { //true to set the size to the current progress
-                    Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
-                }
-                else
-                {
-                    Update.printError(Serial);
-                }
-            }
-        });
-
+    //if you get here you have connected to the WiFi
+    Serial.println("HTTP SERVER CONNECTED:)");
+    
+    server_on_handle();
     server.onNotFound(handleNotFound);
-    server.on("/config",handleConfigure);
+    
     server.begin();
 }
 
 void loop(void)
 {
-    server.handleClient();
+    // if (login_success)
+    {
+        server.handleClient();
+    }
     delay(1);
 }
 
 
-boolean initWiFi() {
+bool initWiFi() {
     boolean connected = false;
     WiFi.mode(WIFI_STA);
     Serial.print("Wifi 연결 중... ");
@@ -208,7 +143,7 @@ boolean initWiFi() {
     return connected;
 }
 
-void handleConfigure()
+void handler_config()
 {
     conf.handleFormRequest(&server);
     if (server.hasArg("SAVE"))
@@ -279,4 +214,124 @@ String RestartESP(const String &var)
 {
     ESP.restart();
     return "Esp restart";
+}
+
+ void server_on_handle(){
+
+    // server.on("/", HTTP_GET, []()
+    // {
+    //     File file = returnFile("/login_index.html");
+
+    //     if (!file)
+    //     {
+    //         Serial.println("- failed to open file");
+    //         server.send(500, "text/plain", "Problem with filesystem!\n");
+    //         return;
+    //     }
+
+    //     String contentType = "text/html";
+    //     server.sendHeader("Connection", "close");
+    //     // server.send(200, "text/html", serverIndex);
+    //     server.streamFile(file, contentType);
+    //     file.close();
+
+    // //   server.sendHeader("Connection", "close");
+    // //   server.send(200, "text/html", loginIndex);
+    // });
+    server.on("/", []()
+    {
+        if (!login_success)
+        {
+            handler_login();
+        }else{                
+            handler_config();
+        }            
+    });
+
+
+    server.on("/login", HTTP_GET, []()
+    {
+        handler_login();
+    });
+
+    server.on("/logout", HTTP_GET, []()
+    {
+        handler_logtout();
+    });
+
+    server.on("/config", handler_config);
+
+    server.on("/serverIndex", HTTP_GET, []()
+    {
+        handler_server_index();
+    });
+
+    server.on("/update", HTTP_POST, []()
+    {
+        server.sendHeader("Connection", "close");
+        ESP.restart();
+    },
+    []()
+    {
+        handler_update();
+    });
+}
+
+
+void handler_login(){
+    if (!server.authenticate("admin", "admin"))
+    {
+        Serial.println("Login Error");
+        return server.requestAuthentication();
+    }
+    server.send(200, "text/plain", "Login ok");
+    login_success = true;
+}
+
+void handler_server_index(){
+    File file = returnFile("/sever_index.html");
+
+    if (!file)
+    {
+        Serial.println("- failed to open file");
+        server.send(500, "text/plain", "Problem with filesystem!\n");
+        return;
+    }
+
+    String contentType = "text/html";
+    server.sendHeader("Connection", "close");
+    //   server.send(200, "text/html", serverIndex);
+    server.streamFile(file, contentType);
+    file.close();
+}
+
+void  handler_update(){
+    HTTPUpload &upload = server.upload();
+    if (upload.status == UPLOAD_FILE_START)
+    {
+        Serial.printf("Update: %s\n", upload.filename.c_str());
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN))
+        { //start with max available size
+            Update.printError(Serial);
+        }
+    }
+    else if (upload.status == UPLOAD_FILE_WRITE)
+    {
+        /* flashing firmware to ESP*/
+        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize)
+        {
+            Update.printError(Serial);
+        }
+    }
+    else if (upload.status == UPLOAD_FILE_END)
+    {
+        if (Update.end(true))
+        { //true to set the size to the current progress
+            Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+        }
+        else
+        {
+            Update.printError(Serial);
+        }
+    }
 }
