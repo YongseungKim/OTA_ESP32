@@ -10,11 +10,9 @@
 
 const char *host = "esp32";
 
-// const char *ssid = "SK_WiFiGIGAFE4B";
-// const char *password = "1704002831";
+// const char *ssid = "ssid";
+// const char *password = "password";
 
-String ssid = "VCOMM_LAB";
-String password = "vcomm13579";
 
 WebServer server(80);
 WebConfig conf;
