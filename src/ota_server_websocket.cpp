@@ -7,12 +7,11 @@
 #include "spiffs_fun.h"
 #include "web_param.h"
 #include "web_config.h"
-
+#include "pass.h"
 const char *host = "esp32";
 
 // const char *ssid = "ssid";
 // const char *password = "password";
-
 
 WebServer server(80);
 WebConfig conf;
